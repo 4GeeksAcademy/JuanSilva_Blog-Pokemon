@@ -1,24 +1,76 @@
-// Import necessary hooks and functions from React.
-import { useContext, useReducer, createContext } from "react";
-import storeReducer, { initialStore } from "../store"  // Import the reducer and the initial state.
+// src/hooks/useGlobalReducer.jsx - SIMPLIFICADO Y ROBUSTO
+import { useContext, useReducer, createContext, useEffect } from "react";
+import storeReducer, { initialStore } from "../store";
+import pokeApiServices from "../services/pokeApiServices";
 
-// Create a context to hold the global state of the application
-// We will call this global state the "store" to avoid confusion while using local states
-const StoreContext = createContext()
+const StoreContext = createContext();
 
-// Define a provider component that encapsulates the store and warps it in a context provider to 
-// broadcast the information throught all the app pages and components.
+// Datos de prueba como fallback
+const mockPokemons = [
+    { name: 'pikachu', url: 'https://pokeapi.co/api/v2/pokemon/25/' },
+    { name: 'bulbasaur', url: 'https://pokeapi.co/api/v2/pokemon/1/' },
+    { name: 'charmander', url: 'https://pokeapi.co/api/v2/pokemon/4/' },
+    { name: 'squirtle', url: 'https://pokeapi.co/api/v2/pokemon/7/' },
+];
+
+const mockItems = [
+    { name: 'potion', url: 'https://pokeapi.co/api/v2/item/1/' },
+    { name: 'super-potion', url: 'https://pokeapi.co/api/v2/item/2/' },
+    { name: 'hyper-potion', url: 'https://pokeapi.co/api/v2/item/3/' },
+    { name: 'max-potion', url: 'https://pokeapi.co/api/v2/item/4/' },
+];
+
 export function StoreProvider({ children }) {
-    // Initialize reducer with the initial state.
-    const [store, dispatch] = useReducer(storeReducer, initialStore())
-    // Provide the store and dispatch method to all child components.
-    return <StoreContext.Provider value={{ store, dispatch }}>
-        {children}
-    </StoreContext.Provider>
+    const [store, dispatch] = useReducer(storeReducer, initialStore());
+
+    useEffect(() => {
+        console.log("🚀 StoreProvider: Iniciando carga de datos...");
+
+        const loadData = async () => {
+            try {
+                console.log("📥 Cargando pokémones...");
+                const pokemonsResult = await pokeApiServices.getPokemons(8);
+                console.log("📦 Resultado de getPokemons:", pokemonsResult);
+
+                if (pokemonsResult && pokemonsResult.results) {
+                    dispatch({ type: 'set_pokemons', payload: pokemonsResult.results });
+                    console.log("✅ Pokémones cargados:", pokemonsResult.results.length);
+                } else {
+                    console.warn("⚠️ Usando datos de prueba para pokémones");
+                    dispatch({ type: 'set_pokemons', payload: mockPokemons });
+                }
+
+                console.log("📥 Cargando items...");
+                const itemsResult = await pokeApiServices.getItems(8);
+                console.log("📦 Resultado de getItems:", itemsResult);
+
+                if (itemsResult && itemsResult.results) {
+                    dispatch({ type: 'set_items', payload: itemsResult.results });
+                    console.log("✅ Items cargados:", itemsResult.results.length);
+                } else {
+                    console.warn("⚠️ Usando datos de prueba para items");
+                    dispatch({ type: 'set_items', payload: mockItems });
+                }
+
+            } catch (error) {
+                console.error("💥 Error general cargando datos:", error);
+                // Usar datos de prueba en caso de error general
+                dispatch({ type: 'set_pokemons', payload: mockPokemons });
+                dispatch({ type: 'set_items', payload: mockItems });
+            }
+        };
+
+        loadData();
+    }, []);
+
+    return (
+        <StoreContext.Provider value={{ store, dispatch }}>
+            {children}
+        </StoreContext.Provider>
+    );
 }
 
-// Custom hook to access the global state and dispatch function.
 export default function useGlobalReducer() {
-    const { dispatch, store } = useContext(StoreContext)
+    const { dispatch, store } = useContext(StoreContext);
     return { dispatch, store };
 }
